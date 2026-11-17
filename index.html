@@ -337,6 +337,31 @@ body.player>header,body.player>main{display:none}
 .wi span{display:flex;gap:8px;align-items:baseline}
 .wi i{width:7px;height:7px;border-radius:50%;flex:none;transform:translateY(-1px)}
 .free{color:var(--dim);font-size:14px}
+.it>div{flex:1;min-width:0}
+.chk{flex:none;width:32px;height:32px;border-radius:50%;border:2px solid #3a3a40;display:grid;place-items:center;color:transparent;transition:border-color .2s,background .2s,color .2s}
+.chk svg{width:16px;height:16px}
+.chk:hover{border-color:var(--ac);color:var(--acl)}
+.chk.on{background:var(--ac);border-color:var(--ac);color:#06130D;animation:chkpop .4s}
+@keyframes chkpop{40%{transform:scale(1.3)}}
+.it.done p{text-decoration:line-through;text-decoration-color:var(--ac);color:var(--mut)}
+.wi em{font-style:normal;font-size:15px;line-height:1}
+.wi .dn{text-decoration:line-through;color:var(--dim)}
+.prog{padding:22px;display:flex;gap:18px;align-items:center}
+.ring{position:relative;width:88px;height:88px;flex:none}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:9}
+.ring .bg{stroke:var(--card2)}
+.ring .fg{stroke:var(--ac);stroke-linecap:round;transition:stroke-dashoffset 1s cubic-bezier(.3,.8,.3,1)}
+.ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;letter-spacing:-.03em}
+.prog h3{font-size:18px}
+.prog p{color:var(--mut);font-size:14px;margin-top:4px}
+.cday.ok b:after{content:"✓";color:#06130D;background:var(--ac);border-radius:50%;width:16px;height:16px;font-size:10px;display:grid;place-items:center}
+.cday.ok b em{display:none}
+.view.on .today,.view.on .hgrid .card,.view.on .shorts>*{animation:fade .55s both}
+.view.on .hgrid .week{animation-delay:.08s}.view.on .side2>:nth-child(1){animation-delay:.14s}.view.on .side2>:nth-child(2){animation-delay:.2s}.view.on .side2>:nth-child(3){animation-delay:.26s}
+.view.on .shorts>:nth-child(1){animation-delay:.3s}.view.on .shorts>:nth-child(2){animation-delay:.35s}.view.on .shorts>:nth-child(3){animation-delay:.4s}.view.on .shorts>:nth-child(4){animation-delay:.45s}
+.cft{position:fixed;z-index:200;pointer-events:none;font-size:20px;left:0;top:0}
+@media(prefers-reduced-motion:reduce){.view.on .today,.view.on .hgrid .card,.view.on .shorts>*{animation:none}.chk.on{animation:none}}
 .next{padding:22px}
 .next .big{font-size:52px;margin:10px 0 2px}
 .store{padding:22px;gap:10px}
@@ -433,6 +458,7 @@ details.est[open] .tg{transform:rotate(45deg)}
     <div class="card week"><div class="lb">Próximos 7 dias</div><div id="week"></div><button class="btn s" style="margin-top:14px;width:100%" id="weekCal">Abrir o calendário do mês</button></div>
     <div class="side2">
       <div class="card next"><span class="pill">Próxima data grande</span><div class="big" id="nextDays">—</div><h3 id="nextName">—</h3><p id="nextWhen">—</p><button class="btn s" id="nextGo" style="margin-top:16px">Ver o plano da data</button></div>
+      <div class="card prog" id="prog"></div>
       <div class="card store"><h3>Nome da sua loja</h3><input id="loja" placeholder="Ex.: Studio Bella Calçados" maxlength="40"><small>Entra sozinho nos disparos e nos apps.</small></div>
     </div>
   </div>
@@ -626,6 +652,7 @@ function go(v){
   $$('.view').forEach(e=>e.classList.toggle('on',e.id==='v-'+v));
   $$('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.go===v));
   window.scrollTo({top:0,behavior:'smooth'});
+  if(v==='inicio'){const n=$('#nextDays');n.dataset.v='';renderHome();const pr=$('#prog .fg');if(pr){const C=pr.getAttribute('stroke-dasharray');pr.style.transition='none';pr.style.strokeDashoffset=C;pr.getBoundingClientRect();pr.style.transition='';renderProg()}}
   if(v==='disparos')$$('#dlist textarea.ed').forEach(a=>{a.style.height='auto';a.style.height=a.scrollHeight+2+'px'});
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(b.dataset.go)});
@@ -784,7 +811,12 @@ const shortD=s=>{const t=pDate(s);return DW[t.getDay()].slice(0,3)+' · '+String
 function refDate(){const t=new Date();t.setHours(0,0,0,0);const a=new Date(2027,0,1),b=new Date(2027,11,31);return t<a?a:(t>b?a:t)}
 function nextWithItems(from){const t=new Date(from);for(let i=0;i<400;i++){const k=iso(t);if(t.getFullYear()!==2027)break;if(dayItems(k).length)return k;t.setDate(t.getDate()+1)}return '2027-01-02'}
 function evFor(k){const e=Object.entries(EV).filter(([_,v])=>v.iso>=k).sort((a,b)=>a[1].iso<b[1].iso?-1:1)[0];return e?e[0]:'verao'}
-const itemHTML=it=>`<div class="it"><i style="background:${TY[it.t][1]}"></i><div><span style="color:${TY[it.t][1]}">${emoOf(it)} ${TY[it.t][0]}</span><p>${esc(it.x)}</p></div></div>`;
+let DONE={};try{DONE=JSON.parse(localStorage.getItem('cal27-done')||'{}')}catch(e){}
+const saveDONE=()=>{try{localStorage.setItem('cal27-done',JSON.stringify(DONE))}catch(e){}};
+const dkey=(k,it)=>k+'|'+it.x;
+const isDone=(k,it)=>!!DONE[dkey(k,it)];
+const dayDone=k=>{const a=dayItems(k).filter(x=>x.t!=='E');return a.length>0&&a.every(x=>isDone(k,x))};
+const itemHTML=(it,k)=>{const can=k&&it.t!=='E',on=can&&isDone(k,it);return `<div class="it${on?' done':''}"><i style="background:${TY[it.t][1]}"></i><div><span style="color:${TY[it.t][1]}">${emoOf(it)} ${TY[it.t][0]}</span><p>${esc(it.x)}</p></div>${can?`<button class="chk${on?' on':''}" data-day="${k}" data-x="${esc(it.x)}" title="Marcar como feito" aria-label="Marcar como feito">${ICO.ok}</button>`:''}</div>`};
 
 /* ---------- HOME ---------- */
 const lojaIn=$('#loja');lojaIn.value=LOJA;
@@ -799,14 +831,14 @@ function renderHome(){
   hello();
   const ref=refDate(),todayK=iso(new Date()),k=nextWithItems(ref),its=dayItems(k),isToday=k===todayK;
   const ev=evFor(k);
-  $('#today').innerHTML=`<div class="tl1"><span class="pill">${isToday?'Hoje':'Próxima ação'}</span><span class="tdate">${longD(k)}</span></div><div class="tits">${its.map(itemHTML).join('')}</div><div class="row"><button class="btn p" id="tMsg">Pegar o disparo ${ICO.ar}</button><button class="btn s" id="tCal">Ver no calendário</button></div>`;
+  $('#today').innerHTML=`<div class="tl1"><span class="pill">${isToday?'Hoje':'Próxima ação'}</span><span class="tdate">${longD(k)}</span></div><div class="tits">${its.map(x=>itemHTML(x,k)).join('')}</div><div class="row"><button class="btn p" id="tMsg">Pegar o disparo ${ICO.ar}</button><button class="btn s" id="tCal">Ver no calendário</button></div>`;
   $('#tMsg').onclick=()=>{go('disparos');selDisp(ev)};$('#tCal').onclick=()=>openDay(k);
   const s=new Date(Math.max(ref,new Date(new Date().toDateString())));if(s.getFullYear()>2027)s.setTime(ref);let rows='',t=new Date(s);
-  for(let i=0;i<7;i++){const kk=iso(t),ii=dayItems(kk);if(t.getFullYear()===2027)rows+=`<button class="wrow" data-k="${kk}"><span class="wd"><b>${t.getDate()}</b>${DW[t.getDay()].slice(0,3)}</span><span class="wi">${ii.length?ii.map(x=>`<span><i style="background:${TY[x.t][1]}"></i>${esc(x.x)}</span>`).join(''):'<span class="free">Dia livre</span>'}</span></button>`;t.setDate(t.getDate()+1)}
+  for(let i=0;i<7;i++){const kk=iso(t),ii=dayItems(kk);if(t.getFullYear()===2027)rows+=`<button class="wrow" data-k="${kk}"><span class="wd"><b>${t.getDate()}</b>${DW[t.getDay()].slice(0,3)}</span><span class="wi">${ii.length?ii.map(x=>`<span${x.t!=='E'&&isDone(kk,x)?' class="dn"':''}><em>${emoOf(x)}</em>${esc(x.x)}</span>`).join(''):'<span class="free">Dia livre</span>'}</span></button>`;t.setDate(t.getDate()+1)}
   $('#week').innerHTML=rows;$$('#week .wrow').forEach(b=>b.onclick=()=>openDay(b.dataset.k));
   $('#weekCal').onclick=()=>{go('calendario');setCal('mes');selMonth(s.getMonth())};
   const n=nextEvent();const days=Math.max(0,Math.ceil((n.date-new Date(new Date().toDateString()))/864e5));
-  $('#nextDays').innerHTML=days+'<small>'+(days===1?'dia':'dias')+'</small>';
+  countUp($('#nextDays'),days,days===1?'dia':'dias');renderProg();
   $('#nextName').textContent=n.t;
   $('#nextWhen').textContent=n.dt+' · comece a divulgar em '+MESES[n.m].c;
   $('#nextGo').onclick=()=>{go('calendario');setCal('mes');selMonth(n.m)};
@@ -847,7 +879,7 @@ function renderGrid(mi,day){
   let h=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(x=>`<div class="cw">${x}</div>`).join('');
   for(let i=0;i<off;i++)h+='<div class="cd0"></div>';
   for(let d=1;d<=n;d++){const k=iso(new Date(2027,mi,d)),its=dayItems(k),ed=!!PL[k];
-    h+=`<button class="cday ${k===SELD?'sel':''} ${k===tk?'tod':''} ${its.some(x=>x.t==='E')?'ev':''}" data-k="${k}"><b>${d}${ed?'<em title="Editado pela loja">•</em>':''}</b>${its.length?`<span class="emo">${its.slice(0,3).map(emoOf).join('')}</span>`:''}<span class="dots">${its.map(x=>`<i style="background:${TY[x.t][1]}"></i>`).join('')}</span><span class="txts">${its.slice(0,2).map(x=>`<span style="--c:${TY[x.t][1]}">${esc(x.x)}</span>`).join('')}${its.length>2?`<span class="more">+${its.length-2}</span>`:''}</span></button>`}
+    h+=`<button class="cday ${k===SELD?'sel':''} ${k===tk?'tod':''} ${its.some(x=>x.t==='E')?'ev':''} ${dayDone(k)?'ok':''}" data-k="${k}"><b>${d}${ed?'<em title="Editado pela loja">•</em>':''}</b>${its.length?`<span class="emo">${its.slice(0,3).map(emoOf).join('')}</span>`:''}<span class="dots">${its.map(x=>`<i style="background:${TY[x.t][1]}"></i>`).join('')}</span><span class="txts">${its.slice(0,2).map(x=>`<span style="--c:${TY[x.t][1]}">${esc(x.x)}</span>`).join('')}${its.length>2?`<span class="more">+${its.length-2}</span>`:''}</span></button>`}
   $('#cgrid').innerHTML=h;
   $$('#cgrid .cday').forEach(b=>b.onclick=()=>{SELD=b.dataset.k;$$('#cgrid .cday').forEach(x=>x.classList.toggle('sel',x===b));renderDay(false)});
   renderDay(false);
@@ -856,7 +888,7 @@ function renderDay(edit){
   const k=SELD,el=$('#dayDet');if(!k){el.innerHTML='';return}
   const its=dayItems(k).map(x=>({...x}));
   if(!edit){
-    el.innerHTML=`<div class="dhead"><h3>${longD(k)}</h3><button class="btn s sm" id="dEdit">Editar dia</button></div>${its.length?`<div class="tits">${its.map(itemHTML).join('')}</div>`:'<p class="free">Nenhuma ação neste dia. Toque em "Editar dia" para adicionar.</p>'}${its.some(x=>x.t==='D')?`<button class="btn p sm" id="dMsg" style="margin-top:12px">Pegar o disparo pronto ${ICO.ar}</button>`:''}`;
+    el.innerHTML=`<div class="dhead"><h3>${longD(k)}</h3><button class="btn s sm" id="dEdit">Editar dia</button></div>${its.length?`<div class="tits">${its.map(x=>itemHTML(x,k)).join('')}</div>`:'<p class="free">Nenhuma ação neste dia. Toque em "Editar dia" para adicionar.</p>'}${its.some(x=>x.t==='D')?`<button class="btn p sm" id="dMsg" style="margin-top:12px">Pegar o disparo pronto ${ICO.ar}</button>`:''}`;
     $('#dEdit').onclick=()=>renderDay(true);const dm=$('#dMsg');if(dm)dm.onclick=()=>{go('disparos');selDisp(evFor(k))};
   }else{
     const row=(x,i)=>`<div class="erow" data-i="${i}"><select class="emsel" title="Emoji"><option value="">Auto</option>${EMOS.map(e=>`<option ${x.e===e?'selected':''}>${e}</option>`).join('')}</select><select class="tsel">${Object.entries(TY).map(([t,v])=>`<option value="${t}" ${x.t===t?'selected':''}>${v[0]}</option>`).join('')}</select><input value="${esc(x.x)}" placeholder="Descreva a ação"><button class="del" title="Apagar">${ICO.x}</button></div>`;
@@ -868,6 +900,31 @@ function renderDay(edit){
     const r=$('#dRst');if(r)r.onclick=()=>{delete PL[k];savePL();renderGrid(pDate(k).getMonth(),k);renderHome();toast('Sugestão restaurada')};
   }
 }
+
+function countUp(el,n,lab){if(el.dataset.v==String(n))return;el.dataset.v=n;const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,t0=performance.now(),D=900;
+  const f=t=>{const p=reduce?1:Math.min(1,(t-t0)/D),v=Math.round(n*(1-Math.pow(1-p,3)));el.innerHTML=v+'<small>'+lab+'</small>';if(p<1)requestAnimationFrame(f)};requestAnimationFrame(f)}
+function renderProg(){
+  const m=refDate().getMonth(),n=new Date(2027,m+1,0).getDate();let tot=0,ok=0;
+  for(let d=1;d<=n;d++){const k=iso(new Date(2027,m,d));dayItems(k).forEach(x=>{if(x.t==='E')return;tot++;if(isDone(k,x))ok++})}
+  const pc=tot?ok/tot:0,C=2*Math.PI*38;
+  const msg=!ok?'Marque ✓ em cada ação que fizer e acompanhe o mês.':ok===tot?'Mês completo! Sua loja fez tudo 🏆':'Faltam '+(tot-ok)+(tot-ok===1?' ação':' ações')+'. Bora! 💪';
+  const el=$('#prog');
+  if(!el.innerHTML)el.innerHTML=`<div class="ring"><svg viewBox="0 0 88 88"><circle class="bg" cx="44" cy="44" r="38"/><circle class="fg" cx="44" cy="44" r="38" stroke-dasharray="${C}" stroke-dashoffset="${C}"/></svg><b></b></div><div><span class="pill">Seu progresso</span><h3 style="margin-top:10px"></h3><p></p></div>`;
+  el.querySelector('b').textContent=Math.round(pc*100)+'%';
+  el.querySelector('h3').textContent=MN[m][0].toUpperCase()+MN[m].slice(1)+': '+ok+' de '+tot+' ações feitas';
+  el.querySelector('p').textContent=msg;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.querySelector('.fg').style.strokeDashoffset=C*(1-pc)}));
+}
+function confetti(x,y,big){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const E=['🎉','✨','💚','🛍️','⭐','👟'];
+  for(let i=0;i<(big?34:14);i++){const e=document.createElement('span');e.className='cft';e.textContent=E[i%E.length];document.body.appendChild(e);
+    const a=Math.random()*Math.PI*2,r=(big?140:70)+Math.random()*(big?160:60),dx=Math.cos(a)*r,dy=Math.sin(a)*r-(big?120:50);
+    e.animate([{transform:`translate(${x-10}px,${y-12}px) scale(.4)`,opacity:1},{transform:`translate(${x+dx*.8-10}px,${y+dy*.8-12}px) scale(1.1) rotate(${(Math.random()-.5)*200}deg)`,opacity:1,offset:.55},{transform:`translate(${x+dx-10}px,${y+dy+120-12}px) scale(.8) rotate(${(Math.random()-.5)*400}deg)`,opacity:0}],{duration:1100+Math.random()*500,easing:'cubic-bezier(.2,.7,.4,1)'}).onfinish=()=>e.remove()}}
+document.addEventListener('click',e=>{const b=e.target.closest('.chk');if(!b)return;e.stopPropagation();
+  const k=b.dataset.day,key=k+'|'+b.dataset.x,on=!DONE[key];if(on)DONE[key]=1;else delete DONE[key];saveDONE();
+  b.classList.toggle('on',on);b.closest('.it').classList.toggle('done',on);
+  if(on){const r=b.getBoundingClientRect(),all=dayDone(k);confetti(r.left+r.width/2,r.top+r.height/2,all);toast(all?'Dia concluído! 🎉':'Feito! ✓')}
+  setTimeout(()=>{renderHome();if($('#v-calendario').classList.contains('on')&&SELD){const sd=SELD;renderGrid(pDate(sd).getMonth(),sd)}},on?650:0);
+});
 
 /* ---------- DISPAROS ---------- */
 let DSEL='all';
